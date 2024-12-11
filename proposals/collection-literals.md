@@ -22,6 +22,7 @@ In simpliest form, if users want to create a collection, instead of writing `val
 - [Similarities with @OverloadResolutionByLambdaReturnType](#similarities-with-overloadresolutionbylambdareturntype)
 - [Similar features in other languages](#similar-features-in-other-languages)
 - [Interop with Java ecosystem](#interop-with-Java-ecosystem)
+- [Tuples](#tuples)
 - [Semantic differences in Kotlin and Java factory methods](#semantic-differences-in-kotlin-and-java-factory-methods)
 - [Performance](#performance)
 - [IDE support](#ide-support)
@@ -345,6 +346,10 @@ Java explicitly voted against collection literals in favor of `of` factory metho
 todo
 
 ## Interop with Java ecosystem
+
+## Tuples
+
+todo
 
 ## Semantic differences in Kotlin and Java factory methods
 
