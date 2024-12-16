@@ -20,6 +20,7 @@ In simpliest form, if users want to create a collection, instead of writing `val
   - [Theoretical possibility to support List vs Set overloads in the future](#theoretical-possibility-to-support-list-vs-set-overloads-in-the-future)
 - [What happens if user forgets operator keyword](#what-happens-if-user-forgets-operator-keyword)
 - [Similarities with @OverloadResolutionByLambdaReturnType](#similarities-with-overloadresolutionbylambdareturntype)
+- [Feature interaction with @OverloadResolutionByLambdaReturnType](#feature-interaction-with-overloadresolutionbylambdareturntype)
 - [Similar features in other languages](#similar-features-in-other-languages)
 - [Interop with Java ecosystem](#interop-with-Java-ecosystem)
 - [Tuples](#tuples)
@@ -328,6 +329,10 @@ In the similar way, `List` can be theoretically made more specific than any othe
 But right now, we **don't plan** to do that, since both `List` and `Set` overloads can equally represent the "main" overload.
 
 ## Similarities with @OverloadResolutionByLambdaReturnType
+
+todo
+
+## Feature interaction with @OverloadResolutionByLambdaReturnType
 
 todo
 
