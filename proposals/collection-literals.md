@@ -15,8 +15,9 @@ In simpliest form, if users want to create a collection, instead of writing `val
 - [Motivation](#motivation)
 - [Proposal](#proposal)
 - [Overload resolution motivation](#overload-resolution-motivation)
-  - [Operator function restrictions](#operator-function-restrictions)
   - [Overload resolution and type inference](#overload-resolution-and-type-inference)
+  - [Operator function `of` restrictions](#operator-function-of-restrictions)
+  - [Operator function `of` permissions](#operator-function-of-permissions)
   - [Theoretical possibility to support List vs Set overloads in the future](#theoretical-possibility-to-support-list-vs-set-overloads-in-the-future)
 - [What happens if user forgets operator keyword](#what-happens-if-user-forgets-operator-keyword)
 - [Similarities with @OverloadResolutionByLambdaReturnType](#similarities-with-overloadresolutionbylambdareturntype)
@@ -63,26 +64,30 @@ From the implementation point of view, position with expected type is already re
 
 **Definition.**
 _`Type` static scope_ is the set that contains member callables (functions and properties) of `Type.Companion` type (`Type.Companion` is a companion object),
-extensions of `Type.Companion`, or static members of the type if the type is declared in Java.
+or static members of the type if the type is declared in Java.
 
 It's proposed to use square brackets because the syntax is already used in Kotlin for array literals inside annotation constructor arguments,
 because it's the syntax a lot of programmers are already familiar with coming from other programming languages,
 and because it honors mathematical notation [for matrices](#rejected-idea-built-in-matrices).
 
 **Informally**, the proposal strives to make it possible for users to use collection literals syntax to express user-defined types `val foo: MyCustomList<Int> = [1, 2, 3]`.
-And when the expected type is unspecified, expression must fallback to `kotlin.List` type: `val foo = [1, 2, 3] // List<Int>`.
+And when the expected type is unspecified, expression must fall back to the `kotlin.List` type: `val foo = [1, 2, 3] // List<Int>`.
 
 **More formally**, before the collection literal could be used at the use-site, an appropriate type needs to declare `operator fun of` function in its _static scope_.
-The `operator fun of` functions must adhere to [the restrictions](#todo).
-[Alternative collection builder](#todo) conventions were rejected.
+The `operator fun of` functions must adhere to [the restrictions](#operator-function-of-restrictions).
 
 Once proper `operator fun of` is declared, the collection literal can be used at the use-site.
 1.  When the collection literal is used in the arguments position, similarly to lambdas and callable references, collection literal affects the overload resolution of the "outer call".
     See the section dedicated to [overload resolution](#overload-resolution-motivation).
 2.  When the collection literal is used in the position with definite expected type, the collection literal is literally desugared to `Type.of(expr1, expr2, expr3)`,
     where `Type` is the definite expected type.
+
+    The following positions are considered positions with definite expected type:
+    - Conditions on `when` expression with subject
+    - `return`, both explicit and implicit
+    - Equality checks (`==`, `!=`)
+    - Assignments and initializations
 3.  In all other cases, it's proposed to desugar collection literal to `List.of(expr1, expr2, expr3)`.
-4.  todo. whenCondition. But what about other cases?
 
 The basic example:
 ```kotlin
@@ -93,7 +98,14 @@ fun main() {
     val foo: MyCustomList<T> = [1, 2, 3]
     val bar: MyCustomList<String> = ["foo", "bar"]
     val baz = [1, 2, 3] // List<Int>
+    when (foo) {
+        [1, 2, 3] -> println("true")
+        else -> println("false")
+    }
+    if (foo == [1, 2, 3]) println("true")
 }
+
+fun foo(): MyCustomList<Int> = [1, 2, 3]
 ```
 
 Please note that it is not necessary for the type to extend any predifined type in the Kotlin stdlib (needed to support `kotlin.Array<T>` type),
@@ -122,9 +134,9 @@ The restrictions and the overload resolution algorithm suggested further will he
 > When we say `List<Int>` vs `List<Double>` kinds of overloads, we mean all sorts of overloads where the "inner" type is different.
 
 -   `List<Int>` vs `Set<Int>` typically emerges when one of the overloads is the "main" overload, and another one is just a convenience overload that delegates to the "main" overload.
-    Such overloads won't be supported because it's generally unknown which of the overloads is the "main" overload,
+    Such overloads won't be supported because it's generally not possible to know which of the overloads is the "main" overload,
     and because collection literal syntax doesn't make it possible to syntactically distinguish `List` vs `Set`.
-    But if we ever change our mind, [it's possible to support `List` vs `Set` kind of overloads](#theoretical-possibility-to-support-List-vs-Set-overloads-in-the-future) in the language in backwards compatible way in the future.
+    But if we ever change our mind, it's possible to support `List` vs `Set` kind of overloads](#theoretical-possibility-to-support-List-vs-Set-overloads-in-the-future) in the language in backwards compatible way in the future.
 -   `List<Int>` vs `List<Double>` is self explanatory (for example, consider the `sum` example above).
     Such overloads should be and will be supported.
 -   `List<Int>` vs `Set<Double>`. Both "inner" and "outer" types are different. 
@@ -132,89 +144,6 @@ The restrictions and the overload resolution algorithm suggested further will he
     The pattern may emerge accidentially, when different overloads come from different packages.
     Or when users don't know about `@JvmName`, so they use different "outer" types to circumvent `CONFLICTING_JVM_DECLARATIONS`.
     This pattern will be supported just because of the general approach we are taking that distinguishes "inner" types.
-
-### Operator function restrictions
-
-**Definition.**
-_Overloading group_ is a set of overloads located in one file or classifier.
-
-The restrictions:
-1. In the _overloading group_, one and only one `of` overload must have single `vararg` parameter.
-2. All `of` overloads must have the return type equal by `ClassId` to the type in whom _static scope_ the overload is declared in.
-3. All `of` overloads must be either top-level extension on `Companion`, be declared as companion object members and have zero extension receivers, or be a static function declared in Java.
-4. All `of` overloads must have zero context parameters.
-5. All `of` overloads must be more specific than the overload with single `vararg` parameter.
-
-If the `of` function is marked with the `operator` keyword, then the compiler should check and enforce all the restrictions.
-All `of` overloads must be marked with `operator` keyword,
-except for Java, because Kotlin compiler cannot issue diagnostics in Java code.
-
-```kotlin
-// Examples of valid declarations
-    class Good1<T> { companion object {
-        operator fun <T> of(vararg t: T) = Good1<Int>()
-        operator fun of(a: String, b: Int) = Good1<String>()
-    }}
-
-    class Good2<T> { companion object }
-    operator fun <T> Good2.Companion.of(vararg t: T) = Good2<Int>()
-
-    class Good3<T> { companion object {
-        operator fun <T> of(vararg t: T) = Good3<Int>()
-    }}
-    operator fun Good3.Companion.of(vararg t: String) = Good3<String>()
-
-    class Good4<K, V> { companion object {
-        operator fun <K, V> of(vararg t: Pair<K, V>) = Good4<K, V>()
-    }}
-
-// Examples of invalid declarations
-    class Bad1<T> { companion object {
-        operator fun <T> of(vararg t: T): Int = 1 // Invalid return type
-    }}
-
-    class Bad2<T> { companion object {
-        operator fun of(t: String, t: Int): Bad2<String> = Bad2() // vararg overload is not present
-    }}
-
-    class Bad3<T> { companion object {
-        operator fun <T> of(vararg t: T): Int = 1 // Invalid return type
-        operator fun of(t: String, t: Int): Bad3<String> = Bad3()
-    }}
-
-    class Bad4 { companion object {
-        operator fun Bad4.Companion.of(vararg t: Int) = Bad4() // Rule 3 is violated
-    }}
-
-    class Bad5<T> { companion object {
-        operator fun of(vararg t: Int): Bad5<Int> = Bad5() // too many vararg overloads in one overloading group
-        operator fun of(vararg t: String): Bad5<String> = Bad5()
-    }}
-
-    class Bad6<T> { companion object {
-        operator fun of(vararg t: Int): Bad6<T> = Bad6<T>()
-        operator fun of(t: String): Bad6<T> = Bad6<T>() // Violation. This overload must be 
-    }}
-```
-
-The motivation behind restriction 1 is to make // todo
-
-The motivation behind restriction 5 is to avoid cases like this:
-```kotlin
-class Array { companion object {
-    operator fun of(vararg t: Int) = Array()
-    operator fun of(t: String) = Array()
-}}
-
-fun foo(a: Array) = Unit // (1)
-fun foo(a: List<String>) = Unit // (2)
-
-fun main() {
-    val s: Array = [""] // green
-    foo(s) // (1)
-    foo([""]) // (2)
-}
-```
 
 ### Overload resolution and type inference
 
@@ -241,45 +170,48 @@ There are two stages:
 2.  Of the remaining candidates, we keep the most specific ones by comparing every two distinct overload candidates.
     https://kotlinlang.org/spec/overload-resolution.html#choosing-the-most-specific-candidate-from-the-overload-candidate-set
 
-For our case to distinguish `List<Int>` vs `List<Double>` kinds of overloads, the first stage of overload resolution is the most appropriate one.
+For our case to distinguish `List<Int>` vs `List<Double>` kinds of overloads (see the [Overload resolution motivation](#overload-resolution-motivation) section), the first stage of overload resolution is the most appropriate one.
 That's exactly what we want to do - to filter out definitely inapplicable `outerCall` overloads.
+
+For a moment, imagine that there is only a single `operator fun of` declaration inside companion object of our target class.
+And that single overload has single `vararg` parameter.
+In the next section, you will see that `operator fun of` restrictions are such that overload resolution algorithm is no different for our simplified case and for a more complicated case when some limited `of` overloads are permitted.
 
 Given the following example: `outerCall([expr1, [expr2], expr3, { a: Int -> }, ::x], expr4, expr5)`,
 similar to lambdas and callable references, collection literal expression type inference is delayed.
-In turn, elements of the collection literal are analyzed in the way similar to how other arguments of `outerCall` are analyzed, which means:
+Contrary, elements of the collection literal are analyzed in the way similar to how other arguments of `outerCall` are analyzed, which means:
 1.  If collection literal elements are lambdas, or callable references their analysis is delayed.
     Only number of lambda parameters and lambda parameter types (if specified) are taken into account of overload resolution of `outerCall`.
 2.  If collection literal elements are collection literals themselves, then we descend into those literals and recursively apply the same rules.
 3.  All other collection literal elements are "plain arguments", and they are analyzed in [so-called "dependent" mode](https://github.com/JetBrains/kotlin/blob/master/docs/fir/inference.md).
 
-Once all "plain" arguments are analyzed (their types are infered in "dependent" mode), and all recursive "plain" elements of collection literals are analyzed,
-we proceed to filtering overload candidates for `outerCall`.
-
 For every overload candidate, when a collection literal maps to its appropriate `ParameterType`:
-1.  We resolve `ParameterType.of(vararg)` according to regular Kotlin operator convention resolution rules.
-    What that means is that, in the resolution tower, we find the "closest" operator `of` with single `vararg` parameter.
-    Please note that according to operator convention resolution rules, declarations with `operator` keyword win over declarations without the keyword (operator extensions win over non-operator members).
-    In all other cases, members win over extensions.
+1.  We find `ParameterType.Companion.of(vararg)` function.
+    Remember that our simplified example is such that there is only one such function.
+    And actually, `operator fun of` function restrictions in the next section guarantee us that it's the only such function.
 2.  We remember the parameter of the single `vararg` parameter.
     We will call it _CLET_ (collection literal element type).
     We also remember the return type of that `ParameterType.of(vararg)` function.
     We will call it _CLT_ (collection literal type).
-3.  In the first stage of overload resolution of `outerCall`, we add the following constraints to the constraint system of `outerCall` candidate:
+3.  In the first stage of overload resolution of `outerCall` (when we filter out inapplicable candidates), we add the following constraints to the constraint system of `outerCall` candidate:
     1. For each collection literal element `e`, we add `type(e) <: CLET` constraint.
     2. We also add the following constraint: `CLT <: ParameterType`.
 
-Please note that constraints described above are only added to the constraint system of `outerCall` and not to constraint system of `of` function themselves.
-(overload resolution for which will be performed later)
+Once all "plain" arguments are analyzed (their types are infered in "dependent" mode), and all recursive "plain" elements of collection literals are analyzed,
+we proceed to filtering overload candidates for `outerCall`.
 
-// todo change example to int vs string
+Please note that constraints described above are only added to the constraint system of the `outerCall` and not to constraint system of the `of` function themselves.
+(overload resolution for which will be performed later, once the overload resolution for `outerCall` is done)
 
 Example:
 ```kotlin
-operator fun <T> List.Companion.of(vararg t: T): List<T> = TODO("not implemented")
+class List<T> { companion object {
+    operator fun <T> of(vararg t: T): List<T> = TODO("not implemented")
+} }
 
 fun <K> materialize(): K = null!!
 fun outerCall(a: List<Int>) = Unit // (1)
-fun outerCall(a: List<Double>) = Unit // (2)
+fun outerCall(a: List<String>) = Unit // (2)
 
 fun test() {
     // The initial constraint system for candidate (1) looks like:
@@ -293,7 +225,7 @@ fun test() {
     //                type(1) <: T
     //                type(2) <: T
     // type(materialize<K>()) <: T
-    //               List<T> <: List<Double>
+    //               List<T> <: List<String>
     // The constraint system is unsound => the candidate is filtered out
     outerCall([1, 2, materialize()]) // We resolve to the single candidate (1)
 }
@@ -305,11 +237,154 @@ Consdier the `outerCall([[[1, 2, 3]]])` example.
 
 Once the particular overload for `outerCall` is choosen, we know what definite expected type collection literal maps to.
 We desugar collection literal to `DefiniteExpectedType.of(expr1, expr2, expr3)`, and we proceed resolving overloads of `DefiniteExpectedType.of` according to regular Kotlin overload resolution rules.
-The `DefiniteExpectedType.of` function itself is resolved according regular Kotlin _operator convention_ rules (e.g. we only consider those functions that are marked with `operator` keyword).
 
-Now the idea behind `of` functions restrictions should be clear.
-The idea is to make it possible to treat the `vararg` overload as "leading"/"fallback" overload that we can always use for overload resolution for `outerCall` without paying the cost of performing overload resolution for `of` function.
-And the cost for full-blown overload resolution for nested `of` calls is big, as it's been said, it's exponential.
+### Operator function `of` restrictions
+
+**The overall goal of the restrictions:**
+Make it possible to extract type restrictions for the elements of the collection literal without the necessity of the full-blown real overload resolution for `operator fun of` function.
+Given only the "outer" type `List<Int>`/`IntArray`/`Foo`, we should be able to infer collection literal element types.
+We need to know the types for the constraint system of the `outerCall` like in the following example:
+```
+@JvmName("sumDouble") fun outerCall(set: List<Double>): Double = TODO("not implemented") // (1)
+@JvmName("sumInt")    fun outerCall(set: List<Int>): Int = TODO("not implemented")       // (2)
+
+fun main() {
+    outerCall([1, 2, 3]) // Should resolve to (2)
+}
+```
+
+**Restriction 1.**
+Extension `operator fun of` functions are forbidden.
+All `operator fun of` functions must be declared as member functions of the target type Companion object.
+```kotlin
+class Foo { companion object }
+operator fun Foo.Companion.of(vararg x: Int) = Foo() // Forbidden
+```
+
+It's a technical restriction driven by the fact that, in Kotlin, extensions can win over members, if members are not applicable.
+Presence of extensions makes it impossible to check all further restrictions.
+
+One could argue that it's already possible for all other `operator`s in Kotlin to be declared as extensions rather than members,
+and it feels limiting not being possible to do the same for `operator fun of`.
+Formally, `operator fun of` is different.
+All `operator`s in Kotlin operate on the existing expression of the target type, while `operator fun of` doesn't have access to the expression of its target type, `operator fun of` is the constructor of its target type.
+We could even replace `operator` keyword with another keyword to make it more clear that `operator fun of` is not a regular operator, but we don't see a lot of practical value in it.
+
+**Restriction 2.**
+One and only one overload with a single `vararg` parameter must be declared.
+No more, no less.
+
+The overload is considered the "main" overload, and it's the overload we use to extract type constraints from for the means of `outerCall` overload resolution.
+Please, remember that we treat collection literal argument as a "delayed argument" (similar to lambdas and callable references).
+First, We do the overload resolution for the `outerCall` and only once a single applicable candidate is found, we use its appropriate parameter type as an expected type for the collection literal argument expression.
+
+Correct:
+```kotlin
+class Foo {
+    companion object {
+        operator fun of(vararg x: Int): Foo = Foo()
+        operator fun of(x: Int): Foo = Foo()
+        operator fun of(x: Int, y: Int): Foo = Foo()
+    }
+}
+```
+
+Incorrect:
+```kotlin
+class Foo {
+    companion object {
+        operator fun of(vararg x: Int): Foo = Foo()
+        operator fun of(vararg x: String): Foo = Foo() // Duplicated `vararg` overload
+    }
+}
+```
+
+Also incorrect:
+```kotlin
+class Pair {
+    companion object {
+        operator fun of(x: Int, y: Int): Pair = Pair() // `vararg` overload is not declared
+    }
+}
+```
+
+**Restriction 3.**
+All `of` overloads must have the return type equal by `ClassId` to the type in which _static scope_ the overload is declared in.
+
+Since the class in which the static scope we search `of` function in is selected by the expected type,
+the expected type should match with the type of the expression (expression = collection literal).
+Otherwise, it's just nonsense.
+
+Supportive example:
+```kotlin
+class Foo { companion object {
+    operator fun of(vararg x: Int): String = ""
+} }
+
+fun main() {
+    val x: Foo = [1] // [TYPE_MISMATCH] expected: Foo, got: String
+}
+```
+
+**Restriction 4.**
+All `of` overloads must have the same return type.
+
+Supportive example:
+```kotlin
+class MyList<T> { companion object {
+    operator fun of(vararg x: Int): MyList<Int> = MyList()
+    operator fun of(x: Int, y: Int): MyList<String> = MyList() // not allowed
+} }
+
+fun outerCall(a: MyList<Int>) = Unit // (1)
+fun outerCall(b: List<Int>) = Unit // (2)
+
+fun main() {
+    // Since the restrictions for `outerCall` overload resolution are taken from the `vararg` overload,
+    // both (1) and (2) are applicable and the call results in OVERLOAD_RESOLUTION_AMBIGUITY
+    outerCall([1, 2])
+    // But the following call resolves to (2)
+    outerCall(MyList.of(1, 2))
+}
+```
+
+**Restriction 5.**
+The only difference that `of` overloads are allowed to have is "number" of parameters (`vararg` is considered an infinite number of params).
+
+> Technically, restriction 5 is a superset of restriction 4, but we still prefer to mention restriction 4, separately.
+
+Which means that types of the parameters must be the same, and all type parameters with their bounds must be the same.
+
+We acknowledge that this restriction disallows having collection literals for things like `NonEmptyList` that may want to declare the following operator: `operator fun <T> of(first: T, vararg rest: T)`.
+
+**Restriction 6.**
+All `of` overloads must have zero extension/context parameters/receivers.
+
+We forbid them to keep mental model simpler and since we didn't find major use cases.
+Since all those "implicit receivers" affect availability of the `of` function, it'd complicate `outerCall` overload resolution, if we allowed "implicit receivers".
+
+### Operator function `of` permissions
+
+We would like to explicitly note the following permissions.
+
+**Permission 1.**
+It's allowed to have reified generics and mark the operator as `inline`.
+
+Use case:
+```kotlin
+class IntArray {
+    companion object {
+        operator fun inline <reified T> of(vararg elements: T): IntArray /*the implementation is code generated*/
+    }
+}
+```
+
+**Permission 2.**
+The operator is allowed to be suspend, or tailrec.
+Because all other operators are allowed being such as well, and we don't see reasons to restrict `operator fun of`.
+
+**Permission 3.**
+Java static `of` member is perceived as `operator fun of` if it satisfies the above restrictions.
 
 ### Theoretical possibility to support List vs Set overloads in the future
 
