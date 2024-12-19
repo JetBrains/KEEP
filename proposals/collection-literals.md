@@ -20,8 +20,8 @@ In simpliest form, if users want to create a collection, instead of writing `val
   - [Operator function `of` permissions](#operator-function-of-permissions)
   - [Theoretical possibility to support List vs Set overloads in the future](#theoretical-possibility-to-support-list-vs-set-overloads-in-the-future)
 - [What happens if user forgets operator keyword](#what-happens-if-user-forgets-operator-keyword)
-- [Similarities with @OverloadResolutionByLambdaReturnType](#similarities-with-overloadresolutionbylambdareturntype)
-- [Feature interaction with @OverloadResolutionByLambdaReturnType](#feature-interaction-with-overloadresolutionbylambdareturntype)
+- [Similarities with `@OverloadResolutionByLambdaReturnType`](#similarities-with-overloadresolutionbylambdareturntype)
+- [Feature interaction with `@OverloadResolutionByLambdaReturnType`](#feature-interaction-with-overloadresolutionbylambdareturntype)
 - [Similar features in other languages](#similar-features-in-other-languages)
 - [Interop with Java ecosystem](#interop-with-Java-ecosystem)
 - [Tuples](#tuples)
@@ -30,10 +30,10 @@ In simpliest form, if users want to create a collection, instead of writing `val
 - [IDE support](#ide-support)
 - [listOf deprecation](#listof-deprecation)
 - [Change to stdlib](#change-to-stdlib)
+- [Empty collection literal](#empty-collection-literal)
 - [Future evolution](#future-evolution)
 - [Rejected proposals and ideas](#rejected-proposals-and-ideas)
   - [Rejected proposal: more granular operators](#rejected-proposal-more-granular-operators)
-  - [Rejected idea: built-in matrices](#rejected-idea:-built-in-matrices)
   - [Rejected idea: self-sufficient collection literals with defined type](#rejected-idea-self-sufficient-collection-literals-with-defined-type)
   - [Rejected proposal: use improved overload resolution algorithm only to refine non-empty overload candidates set on the fixated tower level](#rejected-proposal-use-improved-overload-resolution-algorithm-only-to-refine-non-empty-overload-candidates-set-on-the-fixated-tower-level)
 
@@ -45,10 +45,14 @@ In simpliest form, if users want to create a collection, instead of writing `val
 2.  Collections (not literals) are very widely used in programs.
     They deserve a separate literal.
     A special syntax for collection literal makes them instantly stand out from the rest of the program, making code easier to read.
-3.  Easy migration from other languages.
+3.  Simplify migration from other languages.
     Collection literals is a widely understood concept with more or less the same syntax across different languages.
     And new users have the right to naively believe that Kotlin supports it.
-4.  Special syntax for collection literals helps to resolve the `emptyList`/`listOf` hussle.
+4.  Clear intend.
+    A special syntax for collection literals make it clear that a new instance consisting of the supplied elements is created.
+    For example, `val x = listOf(10)` is potentially confusing, because some readers might think that a new collection with the capacity of 10 is created.
+    Compare it to `val x = [10]`.
+5.  Special syntax for collection literals helps to resolve the `emptyList`/`listOf` hussle.
     Whenever the argument list in `listOf` reduces down to zero, some might prefer to cleanup the code to change `listOf` to `emptyList`.
     And vice-versa, whenever the argument list in `emptyList` needs to grow above zero, the programmer needs to replace `emptyList` with `listOf`.
     It creates a small hussle of `listOf` to `emptyList` back and forth movement.
@@ -68,7 +72,7 @@ or static members of the type if the type is declared in Java.
 
 It's proposed to use square brackets because the syntax is already used in Kotlin for array literals inside annotation constructor arguments,
 because it's the syntax a lot of programmers are already familiar with coming from other programming languages,
-and because it honors mathematical notation [for matrices](#rejected-idea-built-in-matrices).
+and because it honors mathematical notation for matrices.
 
 **Informally**, the proposal strives to make it possible for users to use collection literals syntax to express user-defined types `val foo: MyCustomList<Int> = [1, 2, 3]`.
 And when the expected type is unspecified, expression must fall back to the `kotlin.List` type: `val foo = [1, 2, 3] // List<Int>`.
@@ -83,19 +87,19 @@ Once proper `operator fun of` is declared, the collection literal can be used at
     where `Type` is the definite expected type.
 
     The following positions are considered positions with definite expected type:
-    - Conditions on `when` expression with subject
+    - Conditions of `when` expression with subject
     - `return`, both explicit and implicit
     - Equality checks (`==`, `!=`)
     - Assignments and initializations
 3.  In all other cases, it's proposed to desugar collection literal to `List.of(expr1, expr2, expr3)`.
 
-The basic example:
+Some examples:
 ```kotlin
 class MyCustomList<T> {
     companion object { operator fun <T> of(vararg t: T): MyCustomList<T> = TODO() }
 }
 fun main() {
-    val foo: MyCustomList<T> = [1, 2, 3]
+    val foo: MyCustomList<Int> = [1, 2, 3]
     val bar: MyCustomList<String> = ["foo", "bar"]
     val baz = [1, 2, 3] // List<Int>
     when (foo) {
@@ -113,7 +117,7 @@ nor it necessary for the user-defined type to declare mandatory generic type par
 
 ## Overload resolution motivation
 
-The reasoning behind [the restrictions](#todo) on `operator fun of` are closely related to overload resolution and type inference.
+The reasoning behind [the restrictions](#operator-function-of-restrictions) on `operator fun of` are closely related to overload resolution and type inference.
 Consider the following real-world example:
 ```kotlin
 @JvmName("sumDouble") fun sum(set: List<Double>): Double = TODO("not implemented") // (1)
@@ -136,7 +140,7 @@ The restrictions and the overload resolution algorithm suggested further will he
 -   `List<Int>` vs `Set<Int>` typically emerges when one of the overloads is the "main" overload, and another one is just a convenience overload that delegates to the "main" overload.
     Such overloads won't be supported because it's generally not possible to know which of the overloads is the "main" overload,
     and because collection literal syntax doesn't make it possible to syntactically distinguish `List` vs `Set`.
-    But if we ever change our mind, it's possible to support `List` vs `Set` kind of overloads](#theoretical-possibility-to-support-List-vs-Set-overloads-in-the-future) in the language in backwards compatible way in the future.
+    But if we ever change our mind, [it's possible to support `List` vs `Set` kind of overloads](#theoretical-possibility-to-support-List-vs-Set-overloads-in-the-future) in the language in backwards compatible way in the future.
 -   `List<Int>` vs `List<Double>` is self explanatory (for example, consider the `sum` example above).
     Such overloads should be and will be supported.
 -   `List<Int>` vs `Set<Double>`. Both "inner" and "outer" types are different. 
@@ -384,6 +388,18 @@ The operator is allowed to be suspend, or tailrec.
 Because all other operators are allowed being such as well, and we don't see reasons to restrict `operator fun of`.
 
 **Permission 3.**
+It's allowed to have overloads that differ in number of arguments:
+```kotlin
+class List<T> {
+    companion object {
+        operator fun <T> of(vararg elements: T): List<T> = TODO()
+        operator fun <T> of(element: T): List<T> = TODO()
+        operator fun <T> of(): List<T> = TODO()
+    }
+}
+```
+
+**Permission 4.**
 Java static `of` member is perceived as `operator fun of` if it satisfies the above restrictions.
 
 ### Theoretical possibility to support List vs Set overloads in the future
@@ -403,13 +419,72 @@ In the similar way, `List` can be theoretically made more specific than any othe
 
 But right now, we **don't plan** to do that, since both `List` and `Set` overloads can equally represent the "main" overload.
 
-## Similarities with @OverloadResolutionByLambdaReturnType
+## Similarities with `@OverloadResolutionByLambdaReturnType`
 
-todo
+The suggested algorithm of overload resolution for collection literals shares similarities with `@OverloadResolutionByLambdaReturnType`.
 
-## Feature interaction with @OverloadResolutionByLambdaReturnType
+Similar to how "the guts" of the lambda (the type of the return expression) are analyzed for the sake of the `outerCall` overload resolution,
+"the guts" of collection literal (elements of the collection literal) are analyzed for the same purpose.
+The big difference though is that analysis of "the guts" of collection literal doesn't depend on some "input types" coming from the signature of the particular `outerCall`,
+while in the case of lambdas it's different.
+You need to know the types of the lambda parameters (so called "input types") to infer the return type of the lambda.
 
-todo
+That's why in the case of collection literals, we can jump right into the analysis of its elements, and only postpone the inference of the exact collection literal builder.
+
+Another big difference is what stage the improved overload resolution by lambda return type or by collection literal element type kicks in.
+
+Impoved overload resolution by collection literal element type organically embeds itself into the first stage of overload resolution (candidates filtering), where it logically belongs to.
+Contrary, `@OverloadResolutionByLambdaReturnType` is a separate stage of overload resolution that kicks in after choosing the most specific candidate.
+
+The fact that `@OverloadResolutionByLambdaReturnType` is just slapped on top of regular overload resolution algorithm can be observed in the following example:
+```kotlin
+interface Base
+object A : Base
+object B : Base
+
+@OptIn(kotlin.experimental.ExperimentalTypeInference::class)
+@OverloadResolutionByLambdaReturnType
+@JvmName("mySumOf2")
+fun mySumOf(body: () -> Base) = Unit // (1)
+
+@OptIn(kotlin.experimental.ExperimentalTypeInference::class)
+@OverloadResolutionByLambdaReturnType
+@JvmName("mySumOf3")
+fun mySumOf(body: () -> B) = Unit // (2)
+
+fun main() {
+    mySumOf({ A }) // Actual: resolve to (2). ARGUMENT_TYPE_MISMATCH. Actual type is A, but B was expected
+                   // Expected: resolve to (1). Green code
+}
+```
+
+Collection literals don't suffer from the same problem.
+
+> The section is written for the sake of increasing the understanding the mental model. todo
+
+## Feature interaction with `@OverloadResolutionByLambdaReturnType`
+
+```kotlin
+@OptIn(kotlin.experimental.ExperimentalTypeInference::class)
+@OverloadResolutionByLambdaReturnType
+@JvmName("mySumOf1")
+fun mySumOf(body: List<() -> Int>) = Unit // (1)
+
+@OptIn(kotlin.experimental.ExperimentalTypeInference::class)
+@OverloadResolutionByLambdaReturnType
+@JvmName("mySumOf2")
+fun mySumOf(body: List<() -> Long>) = Unit // (2)
+
+fun main() {
+    mySumOf([{ 1L }])
+}
+```
+
+Technically, since collection literal elements are analyzed "like regular arguments",
+`@OverloadResolutionByLambdaReturnType` in the above case could make the `mySumOf` to resolve to (2).
+
+We should make sure that the example above either results in `OVERLOAD_RESOLUTION_AMBIGUITY` or is prohibited in some way
+(though it's unclear how to prohibit it)
 
 ## Similar features in other languages
 
@@ -423,9 +498,20 @@ Java explicitly voted against collection literals in favor of `of` factory metho
 
 **Swift.**
 
-todo
+Kotlin proposal for collection literals shares a lot of similarities with the way collection literals are done in Swift.
+
+Swift, supports collection literals with the similar suggested syntax.
+Swift also allows 
 
 ## Interop with Java ecosystem
+
+The name for the `operator fun of` is specifically chosen such to ensure smooth Java interop.
+Given that we don't support extension `operator fun of`, it becomes more important for Java developers to declare `of` members that satisfy the requirements.
+We hope that JVM ecosystem will follow "Convenience factory methods" pattern that Java started.
+For example, one can already find convenience factory "of" methods in popular Java libraries such as Guava.
+
+We perceive Java static `of` function as an `operator fun of` function only if it follows the restrictions mentioned above.
+All the restrictions are reasonable and we think that all "collection builder like" of functions will naturally follow those restrictions.
 
 ## Tuples
 
@@ -453,7 +539,7 @@ It's under the question if the inspection for for `listOf`/`setOf` should be ena
 The IDE should implement an inspection to replace explict use of operator function `Type.of` with collection literals where it doesn't lead to overload resolution ambiguity.
 The inspection should be enabled by default.
 
-todo
+We should take into account that ctrl-click on a single character is tricky, especially for via keyboard shortcuts.
 
 ## listOf deprecation
 
@@ -517,10 +603,9 @@ index e692a8c05ede..7509cc55b9c6 100644
      public fun subList(fromIndex: Int, toIndex: Int): List<E>
 +
 +    public companion object {
-+        public operator fun <T> of(vararg t: T): List<T>
-+        public operator fun <T> of(t1: T, t2: T): List<T>
-+        public operator fun <T> of(t1: T, t2: T, t3: T): List<T>
-+        // 10 overloads?
++        public operator fun <T> of(vararg elements: T): List<T>
++        public operator fun <T> of(element: T): List<T>
++        public operator fun <T> of(): List<T>
 +    }
  }
 
@@ -563,8 +648,15 @@ We leave the question of particular implementation to the developers of Kotlin s
 
 ## Empty collection literal
 
-todo add to toc
-todo think about `List<Nothing>
+`emptyList` stdlib function declares `List<T>` as its return type, not `List<Nothing>`.
+Similar to `emptyList`, if the expected type doesn't provide enough information for what the collection literal element should be,
+Kotlin compiler should issue a compilation error asking for an explicit type specification.
+
+```kotlin
+fun main() {
+    val list = [] // Compilation error. Can't infer List<T> generic parameter T
+}
+```
 
 ## Future evolution
 
@@ -607,7 +699,7 @@ class List<T> {
 }
 
 class MutableList<T> {
-    fun add(t: T): Boolean = TODO("")
+    fun add(t: T): Boolean = TODO()
 
     companion object {
         operator fun createCollectionBuilder<T>(capacity: Int): MutableList<T> = ArrayList(capacity)
@@ -618,13 +710,18 @@ class MutableList<T> {
 operator fun <T> MutableList<T>.plusAssign(t: T) { add(t) }
 ```
 
-The main problem with this approach is that the type of the collection builder is exposed in public API.
-The type of the builder is an implementation detail, and users might want to change it over time.
-Users may also want to use different builder types depending on the number of elements in the collection literal.
-
-### Rejected idea: built-in matrices
-
-todo
+There are several problems.
+1.  The design with 3 operators is simply more complicated.
+    3 operators become more scattered than a single operator, it becomes unclear where IDE should navigate on ctrl-click.
+    So if possible, we should prefer a more straightforward "single operator" design.
+2.  The type of the collection builder is exposed in public API (return type of `createCollectionBuilder`).
+    The type of the builder is an implementation detail, and users might want to change it over time.
+3.  It becomes harder or unreasonable to return different collection types/builder types depending on the number of elements in the collection literal.
+4.  Performance.
+    For array-backed collections, the approach to prepoluate array and safe the reference to the array is more performant than calling `.add` for every element.
+    The most popular collection is List.
+    List is array-backed.
+    Though it's correct that consecutive `.add` calls is more performant for non array-backed collections like Map or Set.
 
 ### Rejected idea: self-sufficient collection literals with defined type
 
@@ -684,4 +781,4 @@ class Foo {
 }
 ```
 
-We prefer to keep the language concistent rather than "fixing" the behavior, even if the suggested behavior would be generally better
+We prefer to keep the language concistent rather than "fixing" the behavior, even if the suggested behavior would be generally better (which is not clear, if it's really better)
