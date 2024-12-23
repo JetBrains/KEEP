@@ -23,6 +23,7 @@ In simpliest form, if users want to create a collection, instead of writing `val
 - [What happens if user forgets operator keyword](#what-happens-if-user-forgets-operator-keyword)
 - [Similarities with `@OverloadResolutionByLambdaReturnType`](#similarities-with-overloadresolutionbylambdareturntype)
 - [Feature interaction with `@OverloadResolutionByLambdaReturnType`](#feature-interaction-with-overloadresolutionbylambdareturntype)
+- ["Contains" use case](#contains-use-case)
 - [Similar features in other languages](#similar-features-in-other-languages)
 - [Interop with Java ecosystem](#interop-with-Java-ecosystem)
 - [Tuples](#tuples)
@@ -40,26 +41,120 @@ In simpliest form, if users want to create a collection, instead of writing `val
 
 ## Motivation
 
-1.  Marketing.
-    A lot of modern languages have collection literals.
-    The presence of this feature makes a good first impression on the language.
-2.  Collections (not literals) are very widely used in programs.
+1.  Collections (not literals) are very widely used in programs.
     They deserve a separate literal.
     A special syntax for collection literal makes them instantly stand out from the rest of the program, making code easier to read.
-3.  Simplify migration from other languages.
+2.  Simplify migration from other languages / Friendliness to newcomers.
     Collection literals is a widely understood concept with more or less the same syntax across different languages.
     And new users have the right to naively believe that Kotlin supports it.
-4.  Clear intend.
+    The presence of this feature makes a good first impression on the language.
+3.  Clear intend.
     A special syntax for collection literals makes it clear that a new instance consisting of the supplied elements is created.
     For example, `val x = listOf(10)` is potentially confusing, because some readers might think that a new collection with the capacity of 10 is created.
     Compare it to `val x = [10]`.
-5.  Special syntax for collection literals helps to resolve the `emptyList`/`listOf` hassle.
+4.  Special syntax for collection literals helps to resolve the `emptyList`/`listOf` hassle.
     Whenever the argument list in `listOf` reduces down to zero, some might prefer to clean up the code to change `listOf` to `emptyList`.
     And vice versa, whenever the argument list in `emptyList` needs to grow above zero, the programmer needs to replace `emptyList` with `listOf`.
-    It creates a small hussle of `listOf` to `emptyList` back and forth movement.
+    It creates a small hussle of `listOf` to `emptyList` back and forth replacement.
     It's by no means a big problem, but it is just a small annoyance, which is nice to see to be resolved by the introduction of collection literals.
 
 The feature doesn't bring a lot of value to the existing users, and primarily targets newcomers.
+
+Since the biggest feature value is "aesthetics", "egonomics" and "readability",
+all of which are hard to measure and subjective, it makes sense to see "before/after" code examples to feel the feature better:
+```kotlin
+// before 1
+    if (readlnOrNull() in setOf("y", "Y", "yes", "Yes", null)) {
+        // ...
+    }
+// after 1
+    if (readlnOrNull() in ["y", "Y", "yes", "Yes", null]) {
+        // ...
+    }
+
+
+// before 2
+    val defaultCompilationArguments = listOf(
+        "-no-reflect",
+        "-no-stdlib",
+        "-d", outputDirectory.absolutePathString(),
+        "-cp", dependencyFiles.joinToString(File.pathSeparator),
+        "-module-name", moduleName,
+    )
+// after 2
+    val defaultCompilationArguments = [
+        "-no-reflect",
+        "-no-stdlib",
+        "-d", outputDirectory.absolutePathString(),
+        "-cp", dependencyFiles.joinToString(File.pathSeparator),
+        "-module-name", moduleName,
+    ]
+
+
+// before 3
+    projectTest(
+        parallel = true,
+        defineJDKEnvVariables = listOf(JdkMajorVersion.JDK_1_8, JdkMajorVersion.JDK_11_0, JdkMajorVersion.JDK_17_0)
+    ) { /* ... */ }
+// after 3
+    projectTest(
+        parallel = true,
+        defineJDKEnvVariables = [JdkMajorVersion.JDK_1_8, JdkMajorVersion.JDK_11_0, JdkMajorVersion.JDK_17_0]
+    ) { /* ... */ }
+
+
+// before 4
+    val toReplace = mutableListOf<String>()
+    val visited = mutableSetOf<String>()
+// after 4
+    val toReplace: MutableList<String> = []
+    val visited: MutableSet<String> = []
+
+
+// before 5
+    if (asterisk[row] != emptyList<Int>()) { /* ... */ }
+// after 5
+    if (asterisk[row] != []) { /* ... */ }
+
+
+// before 6
+    it[AnalysisFlags.optIn] = optInList + listOf("kotlin.ExperimentalUnsignedTypes")
+// after 6
+    it[AnalysisFlags.optIn] = optInList + ["kotlin.ExperimentalUnsignedTypes"]
+
+
+// before 7
+    for (key in listOf(argument.value, argument.shortName, argument.deprecatedName)) {
+        if (key.isNotEmpty()) put(key, argumentField)
+    }
+// after 7
+    for (key in [argument.value, argument.shortName, argument.deprecatedName]) {
+        if (key.isNotEmpty()) put(key, argumentField)
+    }
+
+
+// before 8
+    override fun getMimeTypes(): List<String> = listOf("text/x-kotlin")
+// after 8
+    override fun getMimeTypes(): List<String> = ["text/x-kotlin"]
+
+
+// before 9
+    fun <D> MutableMap<String, MutableSet<D>>.initAndAdd(key: String, value: D) {
+        this.compute(key) { _, maybeValues -> (maybeValues ?: mutableSetOf()).apply { add(value) } }
+    }
+// after 9
+    fun <D> MutableMap<String, MutableSet<D>>.initAndAdd(key: String, value: D) {
+        this.compute(key) { _, maybeValues -> (maybeValues ?: []).apply { add(value) } }
+    }
+
+
+// before 10
+    modules.mapNotNullTo(hashSetOf()) { environment.findLocalFile(it.getOutputDirectory()) }
+    sourcesByModuleName.getOrPut(moduleName) { mutableSetOf() }.add(sourceFile)
+// after 10
+    // Can't be expressed via collection literals
+```
 
 ## Proposal
 
@@ -162,7 +257,7 @@ fun test() {
 }
 ```
 
-On the high-level, overload resolution algorithm is very simple and logical.
+On the top-level, overload resolution algorithm is very simple and logical.
 There are two stages:
 1.  Filter out all the overload candidates that certainly don't fit based on types of the arguments.
     Only types of non-lambda and non-reference arguments are considered.
@@ -496,6 +591,27 @@ Technically, since collection literal elements are analyzed "like regular argume
 We should make sure that the example above either results in `OVERLOAD_RESOLUTION_AMBIGUITY` or is prohibited in some way
 (though it's unclear how to prohibit it)
 
+## "Contains" use case
+
+Collection literals bring one more good use case:
+```kotlin
+if (readlnOrNull() in ["y", "Y", "yes", "Yes", null]) {
+    // ...
+}
+```
+
+Since it's quite common use case, it'd be neat if the bytecode that Kotlin generates didn't contain unnecessary collection allocations.
+
+The proposal is to generate bytecode which would be equivalent to:
+```kotlin
+val tmp = readlnOrNull()
+if (tmp == "y" || tmp == "Y" || tmp == "yes" || tmp == "Yes" || tmp == null) {
+    // ...
+}
+```
+
+For the `x in [y1, y2, y3, ...]` code pattern, the IDE should also try to detect duplicated elements and issue a warning if there are some.
+
 ## Similar features in other languages
 
 **Java.**
@@ -679,7 +795,7 @@ Given that Kotlin has nullability built-in, it's proposed for `kotlin.collection
 - In Java, duplicated elements in `java.util.Set.of(1, 1)` cause `IllegalArgumentException`.
 - In Kotlin, `setOf(1, 1)` returns a Set that consists of a single element.
 
-Since it might be very unexpected for expression `Set.of(compute(), compute())` to throw an exception, it's proposed for `kotlin.collections.Set.of(1, 1)` to work similarly to `setOf(1, 1)`.
+Since it might be very unexpected for expression `Set.of(compute1(), compute2())` to throw an exception, it's proposed for `kotlin.collections.Set.of(1, 1)` to work similarly to `setOf(1, 1)`.
 
 Both Java and Kotlin return unmodifiable collections.
 Though, in Kotlin, we found a "problem" that `mapOf(vararg)` and `setOf(vararg)` don't do that.
