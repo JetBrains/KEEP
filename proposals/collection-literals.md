@@ -2,7 +2,7 @@
 
 * **Type**: Design proposal
 * **Author**: Nikita Bobko
-* **Contributors**: Alejandro Serrano Mena, Denis Zharkov, Marat Akhin, Mikhail Zarechenskii, todo
+* **Contributors**: Alejandro Serrano Mena, Denis Zharkov, Marat Akhin, Mikhail Zarechenskii
 * **Issue:** [KT-43871](https://youtrack.jetbrains.com/issue/KT-43871)
 * **Prototype:** https://github.com/JetBrains/kotlin/tree/bobko/collection-literals
 * **Discussion**: todo
@@ -272,14 +272,19 @@ All `operator`s in Kotlin operate on the existing expression of the target type,
 We could even replace `operator` keyword with another keyword to make it clearer that `operator fun of` is not a regular operator, but we don't see a lot of practical value in it.
 
 **Restriction 2.**
-One and only one overload with a single `vararg` parameter must be declared.
+One and only one overload must declare a `vararg` parameter.
 No more, no less.
+
+There are 2 permitted cases:
+1.  The `vararg` parameter is the single parameter of its containing `of` function
+2.  The `vararg` parameter is the latest parameter of its containing `of` function.
+    All parameters that come in front of the `vararg` parameter must all have the same type as the `vararg` parameter.
 
 The overload is considered the "main" overload, and it's the overload we use to extract type constraints from for the means of `outerCall` overload resolution.
 Please remember that we treat collection literal argument as a "postponed argument" (similar to lambdas and callable references).
 First, We do the overload resolution for the `outerCall` and only once a single applicable candidate is found, we use its appropriate parameter type as an expected type for the collection literal argument expression.
 
-Correct:
+Valid examples:
 ```kotlin
 class Foo {
     companion object {
@@ -288,23 +293,33 @@ class Foo {
         operator fun of(x: Int, y: Int): Foo = Foo()
     }
 }
-```
 
-Incorrect:
-```kotlin
-class Foo {
+class NonEmptyList {
     companion object {
-        operator fun of(vararg x: Int): Foo = Foo()
-        operator fun of(vararg x: String): Foo = Foo() // Duplicated `vararg` overload
+        operator fun of(first: Int, vararg rest: Int): Foo = Foo()
+        operator fun of(first: Int): Foo = Foo()
     }
 }
 ```
 
-Also, incorrect:
+Invalid examples:
 ```kotlin
+class Foo {
+    companion object {
+        operator fun of(vararg x: Int): Foo = Foo()
+        operator fun of(vararg x: String): Foo = Foo() // Error: Duplicated `vararg` overload
+    }
+}
+
 class Pair {
     companion object {
-        operator fun of(x: Int, y: Int): Pair = Pair() // `vararg` overload is not declared
+        operator fun of(x: Int, y: Int): Pair = Pair() // Error: `vararg` overload is not declared
+    }
+}
+
+class BrokenNonEmptyList {
+    companion object {
+        operator fun of(first: Int, second: String, vararg rest: Int): Foo = Foo() // Error: types of parameters `first`, `second` and `rest` must be the same
     }
 }
 ```
@@ -338,13 +353,13 @@ class MyList<T> { companion object {
 } }
 
 fun outerCall(a: MyList<Int>) = Unit // (1)
-fun outerCall(b: List<Int>) = Unit // (2)
+fun outerCall(b: MyList<String>) = Unit // (2)
 
 fun main() {
     // Since the restrictions for `outerCall` overload resolution are taken from the `vararg` overload,
-    // both (1) and (2) are applicable and the call results in OVERLOAD_RESOLUTION_AMBIGUITY
+    // we fixate `outerCall` to (1), then we desugar collection literal to `MyList.of(1, 2)`, type of `MyList.of(1, 2)` is `MyList<String>` => We report `TYPE_MISMATCH`
     outerCall([1, 2])
-    // But the following call resolves to (2)
+    // But the following call (which is just a desugar of the previous one) resolves to (2) and works flawlessly
     outerCall(MyList.of(1, 2))
 }
 ```
@@ -355,8 +370,6 @@ The only difference that `of` overloads are allowed to have is "number" of param
 > Technically, restriction 5 is a superset of restriction 4, but we still prefer to mention restriction 4 separately.
 
 Which means that types of the parameters must be the same, and all type parameters with their bounds must be the same.
-
-We acknowledge that this restriction disallows having collection literals for things like `NonEmptyList` that may want to declare the following operator: `operator fun <T> of(first: T, vararg rest: T)`.
 
 **Restriction 6.**
 All `of` overloads must have zero extension/context parameters/receivers.
