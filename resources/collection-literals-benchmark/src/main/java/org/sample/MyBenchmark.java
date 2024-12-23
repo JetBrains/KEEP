@@ -81,7 +81,7 @@ public class MyBenchmark {
     }
 
     static <K, V> Map<K, V> mapOf_separateArrays(K[] keys, V[] values) {
-        if (keys.length != values.length) throw new IllegalArgumentException("Fuck you");
+        if (keys.length != values.length) throw new IllegalArgumentException("Different sizes");
         LinkedHashMap<K, V> map = new LinkedHashMap<>(keys.length);
         for (int i = 0; i < keys.length; i++) {
             map.put(keys[i], values[i]);
