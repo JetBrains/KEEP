@@ -179,9 +179,9 @@ And that single overload has single `vararg` parameter.
 In the next section, you will see that `operator fun of` restrictions are such that overload resolution algorithm is no different for our simplified case and for a more complicated case when some limited `of` overloads are permitted.
 
 Given the following example: `outerCall([expr1, [expr2], expr3, { a: Int -> }, ::x], expr4, expr5)`,
-similar to lambdas and callable references, collection literal expression type inference is delayed.
+similar to lambdas and callable references, collection literal expression type inference is postponed.
 Contrary, elements of the collection literal are analyzed in the way similar to how other arguments of `outerCall` are analyzed, which means:
-1.  If collection literal elements are lambdas, or callable references, their analysis is delayed.
+1.  If collection literal elements are lambdas, or callable references, their analysis is postponed.
     Only number of lambda parameters and lambda parameter types (if specified) are taken into account of overload resolution of `outerCall`.
 2.  If collection literal elements are collection literals themselves, then we descend into those literals and recursively apply the same rules.
 3.  All other collection literal elements are "plain arguments", and they are analyzed in [so-called "dependent" mode](https://github.com/JetBrains/kotlin/blob/master/docs/fir/inference.md).
@@ -276,7 +276,7 @@ One and only one overload with a single `vararg` parameter must be declared.
 No more, no less.
 
 The overload is considered the "main" overload, and it's the overload we use to extract type constraints from for the means of `outerCall` overload resolution.
-Please remember that we treat collection literal argument as a "delayed argument" (similar to lambdas and callable references).
+Please remember that we treat collection literal argument as a "postponed argument" (similar to lambdas and callable references).
 First, We do the overload resolution for the `outerCall` and only once a single applicable candidate is found, we use its appropriate parameter type as an expected type for the collection literal argument expression.
 
 Correct:
