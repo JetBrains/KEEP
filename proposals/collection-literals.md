@@ -159,11 +159,41 @@ all of which are hard to measure and subjective, it makes sense to see "before/a
 ## Proposal
 
 **Informally**, the proposal strives to make it possible for users to use collection literals syntax to express user-defined types `val foo: MyCustomList<Int> = [1, 2, 3]`.
-And when the expected type is unspecified, expression must fall back to the `kotlin.List` type: `val foo = [1, 2, 3] // List<Int>`.
+And when the *expected type* (See the definition below) is unspecified, expression must fall back to the `kotlin.List` type: `val foo = [1, 2, 3] // List<Int>`.
 
 It's proposed to use square brackets because the syntax is already used in Kotlin for array literals inside annotation constructor arguments,
 because it's the syntax a lot of programmers are already familiar with coming from other programming languages,
 and because it honors mathematical notation for matrices.
+
+**Informal definition.**
+Internally, Kotlin has a notion of *expected type*.
+Expressions have some type, which we call "the actual type" or just "the type".
+Those expressions fill in the "holes".
+And the "holes" only accept expressions of a particular type.
+The particular type that is accepted by the hole is called *the expected type*.
+
+For example:
+```kotlin
+fun outerCall(a: CharSequence) = Unit
+
+fun foo(a: Short) = Unit
+fun foo(a: Any) = Unit
+
+fun main() {
+    val foo: Number = 1 // The "actual type" is Int, but the "expected type" is Number
+    outerCall("Kotlin is the best") // The "actual type" is String, but the "expected type" is CharSequence
+    val bar = 1 // The "actual type" is Int and the "expected type" is Int.
+
+    // Sometimes the "expected type" can affect the "actual type".
+    // Unfortunately for us (language implementors), the actual type isn't inferred independently in the air, but is affected by the "expected type"
+    val baz: Short = 1 // The "actual type" is Short, and the "expected type" is Short
+
+    // The "actual type" affects overload resolution, which in turn affects what type the "expected type" is going to materialize into,
+    // which means that transitively "actual type" affects the "expected type"
+    // type inference, unfortunately, is bi-directional in Kotlin
+    foo(1) // The "actual type" is Short, the "expected type" is Short
+}
+```
 
 **Definition.**
 _`Type` static scope_ is the set that contains member callables (functions and properties) of `Type.Companion` type (`Type.Companion` is a companion object),
@@ -175,10 +205,10 @@ The `operator fun of` functions must adhere to [the restrictions](#operator-func
 Once proper `operator fun of` is declared, the collection literal can be used at the use-site.
 1.  When the collection literal is used in the arguments position, similarly to lambdas and callable references, collection literal affects the overload resolution of the "outer call".
     See the section dedicated to [overload resolution](#overload-resolution-motivation).
-2.  When the collection literal is used in the position with definite expected type, the collection literal is literally desugared to `Type.of(expr1, expr2, expr3)`,
-    where `Type` is the definite-expected type.
+2.  When the collection literal is used in the position with definite *expected type*, the collection literal is literally desugared to `Type.of(expr1, expr2, expr3)`,
+    where `Type` is the definite *expected type*.
 
-    The following positions are considered positions with the definite expected type:
+    The following positions are considered positions with the definite *expected type*:
     - Conditions of `when` expression with a subject
     - `return`, both explicit and implicit
     - Equality checks (`==`, `!=`)
@@ -331,7 +361,7 @@ It's important to understand that until we pick the `outerCall` overload, we don
 If we did so, it'd lead to exponential complexity of `outerCall` overload resolution.
 Consider the `outerCall([[[1, 2, 3]]])` example.
 
-Once the particular overload for `outerCall` is chosen, we know what definite expected type collection literal maps to.
+Once the particular overload for `outerCall` is chosen, we know what definite *expected type* collection literal maps to.
 We desugar collection literal to `DefiniteExpectedType.of(expr1, expr2, expr3)`, and we proceed to resolve overloads of `DefiniteExpectedType.of` according to regular Kotlin overload resolution rules.
 
 ### Operator function `of` restrictions
@@ -377,7 +407,7 @@ There are 2 permitted cases:
 
 The overload is considered the "main" overload, and it's the overload we use to extract type constraints from for the means of `outerCall` overload resolution.
 Please remember that we treat collection literal argument as a "postponed argument" (similar to lambdas and callable references).
-First, We do the overload resolution for the `outerCall` and only once a single applicable candidate is found, we use its appropriate parameter type as an expected type for the collection literal argument expression.
+First, We do the overload resolution for the `outerCall` and only once a single applicable candidate is found, we use its appropriate parameter type as an *expected type* for the collection literal argument expression.
 
 Valid examples:
 ```kotlin
@@ -422,8 +452,8 @@ class BrokenNonEmptyList {
 **Restriction 3.**
 All `of` overloads must have the return type equal by `ClassId` to the type in which _static scope_ the overload is declared in.
 
-Since the class in which the static scope we search `of` function in is selected by the expected type,
-the expected type should match with the type of the expression (expression = collection literal).
+Since the class in which the static scope we search `of` function in is selected by the *expected type*,
+the *expected type* should match with the type of the expression (expression = collection literal).
 Otherwise, it's just nonsense.
 
 Supportive example:
@@ -804,7 +834,7 @@ The reasons for that are yet unknown, it could be an oversight, or it could be a
 ## Empty collection literal
 
 `emptyList` stdlib function declares `List<T>` as its return type, not `List<Nothing>`.
-Similar to `emptyList`, if the expected type doesn't provide enough information for what the collection literal element should be,
+Similar to `emptyList`, if the *expected type* doesn't provide enough information for what the collection literal element should be,
 Kotlin compiler should issue a compilation error asking for an explicit type specification.
 
 ```kotlin
@@ -884,7 +914,7 @@ There are several problems.
 
 > todo it's not yet completely rejected since the discussion around Map literals is still in progress
 
-The type of collection literals is infered from the expected type.
+The type of collection literals is infered from the *expected type*.
 Unfortunately, that may lead to overload resolution ambiguity when collection literal is used in argument position.
 
 ```kotlin
