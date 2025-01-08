@@ -225,10 +225,10 @@ fun main() {
     val bar: MyCustomList<String> = ["foo", "bar"]
     val baz = [1, 2, 3] // List<Int>
     when (foo) {
-        [1, 2, 3] -> println("true")
+        [1, 2, 3] -> println("true") // MyCustomList<Int>
         else -> println("false")
     }
-    if (foo == [1, 2, 3]) println("true")
+    if (foo == [1, 2, 3]) println("true") // MyCustomList<Int>
 }
 
 fun foo(): MyCustomList<Int> = [1, 2, 3]
@@ -290,7 +290,7 @@ fun test() {
 On the top-level, overload resolution algorithm is very simple and logical.
 There are two stages:
 1.  Filter out all the overload candidates that certainly don't fit based on types of the arguments.
-    Only types of non-lambda and non-reference arguments are considered.
+    Only types of non-lambda and non-callable-reference arguments are considered.
     (it's important to understand that we don't keep the candidates that fit, but we filter out those that don't)
     https://kotlinlang.org/spec/overload-resolution.html#determining-function-applicability-for-a-specific-call
 2.  Of the remaining candidates, we keep the most specific ones by comparing every two distinct overload candidates.
@@ -388,7 +388,8 @@ operator fun Foo.Companion.of(vararg x: Int) = Foo() // Forbidden
 ```
 
 It's a technical restriction driven by the fact that, in Kotlin, extensions can win over members if members are not applicable.
-The presence of extensions makes it impossible to check all further restrictions.
+The restriction avoids the need to consider imported `of`s and the need to check their restrictions.
+The presence of the extensions makes it impossible to check all further restrictions on the `of` function declaration side.
 
 One could argue that it's already possible for all other `operator`s in Kotlin to be declared as extensions rather than members,
 and it feels limiting not being possible to do the same for `operator fun of`.
@@ -452,6 +453,10 @@ class BrokenNonEmptyList {
 **Restriction 3.**
 All `of` overloads must have the return type equal by `ClassId` to the type in which _static scope_ the overload is declared in.
 
+The `ClassId` of a type is its typed fully qualified name.
+It's a list of typed tokens, where every token represents either a name of the package, or a name of the class.
+"Typed" here means that package named "foo" doesn't equal to the class named "foo".
+
 Since the class in which the static scope we search `of` function in is selected by the *expected type*,
 the *expected type* should match with the type of the expression (expression = collection literal).
 Otherwise, it's just nonsense.
@@ -492,7 +497,7 @@ fun main() {
 **Restriction 5.**
 The only difference that `of` overloads are allowed to have is "number" of parameters (`vararg` is considered an infinite number of params).
 
-> Technically, restriction 5 is a superset of restriction 4, but we still prefer to mention restriction 4 separately.
+> Technically, the restriction 5 is a superset of the restriction 4, but we still prefer to mention restriction 4 separately.
 
 Which means that types of the parameters must be the same, and all type parameters with their bounds must be the same.
 
