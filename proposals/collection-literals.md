@@ -158,18 +158,18 @@ all of which are hard to measure and subjective, it makes sense to see "before/a
 
 ## Proposal
 
-**Definition.**
-_`Type` static scope_ is the set that contains member callables (functions and properties) of `Type.Companion` type (`Type.Companion` is a companion object),
-or static members of the type if the type is declared in Java.
+**Informally**, the proposal strives to make it possible for users to use collection literals syntax to express user-defined types `val foo: MyCustomList<Int> = [1, 2, 3]`.
+And when the expected type is unspecified, expression must fall back to the `kotlin.List` type: `val foo = [1, 2, 3] // List<Int>`.
 
 It's proposed to use square brackets because the syntax is already used in Kotlin for array literals inside annotation constructor arguments,
 because it's the syntax a lot of programmers are already familiar with coming from other programming languages,
 and because it honors mathematical notation for matrices.
 
-**Informally**, the proposal strives to make it possible for users to use collection literals syntax to express user-defined types `val foo: MyCustomList<Int> = [1, 2, 3]`.
-And when the expected type is unspecified, expression must fall back to the `kotlin.List` type: `val foo = [1, 2, 3] // List<Int>`.
+**Definition.**
+_`Type` static scope_ is the set that contains member callables (functions and properties) of `Type.Companion` type (`Type.Companion` is a companion object),
+or static members of the type if the type is declared in Java.
 
-**More formally**, before the collection literal could be used at the use-site, an appropriate type needs to declare `operator fun of` function in its _static scope_.
+Before the collection literal could be used at the use-site, an appropriate type needs to declare `operator fun of` function in its _static scope_.
 The `operator fun of` functions must adhere to [the restrictions](#operator-function-of-restrictions).
 
 Once proper `operator fun of` is declared, the collection literal can be used at the use-site.
