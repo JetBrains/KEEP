@@ -19,9 +19,9 @@ In simpliest form, if users want to create a collection, instead of writing `val
   - [Overload resolution and type inference](#overload-resolution-and-type-inference)
   - [Operator function `of` restrictions](#operator-function-of-restrictions)
   - [Operator function `of` allowances](#operator-function-of-allowances)
+- ["Contains" use case](#contains-use-case)
 - [Similarities with `@OverloadResolutionByLambdaReturnType`](#similarities-with-overloadresolutionbylambdareturntype)
 - [Feature interaction with `@OverloadResolutionByLambdaReturnType`](#feature-interaction-with-overloadresolutionbylambdareturntype)
-- ["Contains" use case](#contains-use-case)
 - [Similar features in other languages](#similar-features-in-other-languages)
 - [Interop with Java ecosystem](#interop-with-Java-ecosystem)
 - [Tuples](#tuples)
@@ -556,6 +556,27 @@ class List<T> {
 **Allowance 4.**
 Java static `of` members are perceived as `operator fun of` if they satisfy the above restrictions.
 
+## "Contains" use case
+
+Collection literals bring one more good use case:
+```kotlin
+if (readlnOrNull() in ["y", "Y", "yes", "Yes", null]) {
+    // ...
+}
+```
+
+Since it's quite common use case, it'd be neat if the bytecode that Kotlin generates didn't contain unnecessary collection allocations.
+
+The proposal is to generate bytecode which would be equivalent to:
+```kotlin
+val tmp = readlnOrNull()
+if (tmp == "y" || tmp == "Y" || tmp == "yes" || tmp == "Yes" || tmp == null) {
+    // ...
+}
+```
+
+For the `x in [y1, y2, y3, ...]` code pattern, the IDE should also try to detect duplicated elements and issue a warning if there are some.
+
 ## Similarities with `@OverloadResolutionByLambdaReturnType`
 
 The suggested algorithm of overload resolution for collection literals shares similarities with `@OverloadResolutionByLambdaReturnType`.
@@ -622,27 +643,6 @@ Technically, since collection literal elements are analyzed "like regular argume
 
 We should make sure that the example above either results in `OVERLOAD_RESOLUTION_AMBIGUITY` or is prohibited in some way
 (though it's unclear how to prohibit it)
-
-## "Contains" use case
-
-Collection literals bring one more good use case:
-```kotlin
-if (readlnOrNull() in ["y", "Y", "yes", "Yes", null]) {
-    // ...
-}
-```
-
-Since it's quite common use case, it'd be neat if the bytecode that Kotlin generates didn't contain unnecessary collection allocations.
-
-The proposal is to generate bytecode which would be equivalent to:
-```kotlin
-val tmp = readlnOrNull()
-if (tmp == "y" || tmp == "Y" || tmp == "yes" || tmp == "Yes" || tmp == null) {
-    // ...
-}
-```
-
-For the `x in [y1, y2, y3, ...]` code pattern, the IDE should also try to detect duplicated elements and issue a warning if there are some.
 
 ## Similar features in other languages
 
