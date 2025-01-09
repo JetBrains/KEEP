@@ -19,7 +19,6 @@ In simpliest form, if users want to create a collection, instead of writing `val
   - [Overload resolution and type inference](#overload-resolution-and-type-inference)
   - [Operator function `of` restrictions](#operator-function-of-restrictions)
   - [Operator function `of` allowances](#operator-function-of-allowances)
-  - [Theoretical possibility to support List vs Set overloads in the future](#theoretical-possibility-to-support-list-vs-set-overloads-in-the-future)
 - [What happens if user forgets operator keyword](#what-happens-if-user-forgets-operator-keyword)
 - [Similarities with `@OverloadResolutionByLambdaReturnType`](#similarities-with-overloadresolutionbylambdareturntype)
 - [Feature interaction with `@OverloadResolutionByLambdaReturnType`](#feature-interaction-with-overloadresolutionbylambdareturntype)
@@ -34,6 +33,7 @@ In simpliest form, if users want to create a collection, instead of writing `val
   - [Semantic differences between Kotlin and Java factory methods](#semantic-differences-between-kotlin-and-java-factory-methods)
 - [Empty collection literal](#empty-collection-literal)
 - [Future evolution](#future-evolution)
+  - [Theoretical possibility to support List vs Set overloads in the future](#theoretical-possibility-to-support-list-vs-set-overloads-in-the-future)
 - [Rejected proposals and ideas](#rejected-proposals-and-ideas)
   - [Rejected proposal: more granular operators](#rejected-proposal-more-granular-operators)
   - [Rejected idea: self-sufficient collection literals with defined type](#rejected-idea-self-sufficient-collection-literals-with-defined-type)
@@ -557,23 +557,6 @@ class List<T> {
 **Allowance 4.**
 Java static `of` members are perceived as `operator fun of` if they satisfy the above restrictions.
 
-### Theoretical possibility to support List vs. Set overloads in the future
-
-We don't plan to, but if we ever change our mind, it's possible to support `List` vs `Set` kinds of overloads in the way similar to how Kotlin prefers `Int` overload over `Long` overload:
-```kotlin
-fun foo(a: Int) = Unit // (1)
-fun foo(a: Long) = Unit // (2)
-
-fun test() {
-    foo(1) // (1)
-}
-```
-
-On the second stage of overload resolution, `Int` is considered more specific than `Long`, `Short`, `Byte`.
-In the similar way, `List` can be theoretically made more specific than any other type that can represent collection literals.
-
-But right now, we **don't plan** to do that, since both `List` and `Set` overloads can equally represent the "main" overload.
-
 ## Similarities with `@OverloadResolutionByLambdaReturnType`
 
 The suggested algorithm of overload resolution for collection literals shares similarities with `@OverloadResolutionByLambdaReturnType`.
@@ -867,6 +850,23 @@ fun main() {
 
 In the future, Kotlin may provide `@VarargOverloads` (similar to `@JvmOverloads`), or `inline vararg` to eliminate unnecessary array allocations even further.
 But it's relevant only for Maps and Sets.
+
+### Theoretical possibility to support List vs. Set overloads in the future
+
+We don't plan to, but if we ever change our mind, it's possible to support `List` vs `Set` kinds of overloads in the way similar to how Kotlin prefers `Int` overload over `Long` overload:
+```kotlin
+fun foo(a: Int) = Unit // (1)
+fun foo(a: Long) = Unit // (2)
+
+fun test() {
+    foo(1) // (1)
+}
+```
+
+On the second stage of overload resolution, `Int` is considered more specific than `Long`, `Short`, `Byte`.
+In the similar way, `List` can be theoretically made more specific than any other type that can represent collection literals.
+
+But right now, we **don't plan** to do that, since both `List` and `Set` overloads can equally represent the "main" overload.
 
 ## Rejected proposals and ideas
 
