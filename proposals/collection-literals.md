@@ -48,7 +48,7 @@ In simpliest form, if users want to create a collection, instead of writing `val
     Collection literals is a widely understood concept with more or less the same syntax across different languages.
     And new users have the right to naively believe that Kotlin supports it.
     The presence of this feature makes a good first impression on the language.
-3.  Clear intend.
+3.  Clear intent.
     A special syntax for collection literals makes it clear that a new instance consisting of the supplied elements is created.
     For example, `val x = listOf(10)` is potentially confusing, because some readers might think that a new collection with the capacity of 10 is created.
     Compare it to `val x = [10]`.
@@ -58,7 +58,7 @@ In simpliest form, if users want to create a collection, instead of writing `val
     It creates a small hussle of `listOf` to `emptyList` back and forth replacement.
     It's by no means a big problem, but it is just a small annoyance, which is nice to see to be resolved by the introduction of collection literals.
 
-The feature doesn't bring a lot of value to the existing users, and primarily targets newcomers.
+The feature brings more value to newcomers rather than to experienced Kotlin users, and should target the newcomers primarily.
 
 Since the biggest feature value is "aesthetics", "egonomics" and "readability",
 all of which are hard to measure and subjective, it makes sense to see "before/after" code examples to feel the feature better:
@@ -195,6 +195,8 @@ fun main() {
 }
 ```
 
+Another KEEP proposal that heavily uses the notion of *expected type* is [Improve resolution using expected type](./improved-resolution-expected-type.md).
+
 **Definition.**
 _`Type` static scope_ is the set that contains member callables (functions and properties) of `Type.Companion` type (`Type.Companion` is a companion object),
 or static members of the type if the type is declared in Java.
@@ -287,8 +289,7 @@ fun test() {
 }
 ```
 
-On the top-level, overload resolution algorithm is very simple and logical.
-There are two stages:
+On the top-level, overload resolution algorithm consists of two stages:
 1.  Filter out all the overload candidates that certainly don't fit based on types of the arguments.
     Only types of non-lambda and non-callable-reference arguments are considered.
     (it's important to understand that we don't keep the candidates that fit, but we filter out those that don't)
@@ -457,9 +458,8 @@ The `ClassId` of a type is its typed fully qualified name.
 It's a list of typed tokens, where every token represents either a name of the package, or a name of the class.
 "Typed" here means that package named "foo" doesn't equal to the class named "foo".
 
-Since the class in which the static scope we search `of` function in is selected by the *expected type*,
-the *expected type* should match with the type of the expression (expression = collection literal).
-Otherwise, it's just nonsense.
+The reasoning for that restriction is that we use the expected type for searching the `of` function,
+so we need to ensure that the choice matches the type of the collection literal expression.
 
 Supportive example:
 ```kotlin
@@ -474,6 +474,7 @@ fun main() {
 
 **Restriction 4.**
 All `of` overloads must have the same return type.
+If the return type is generic, the constraints on type parameters must coincide.
 
 Supportive example:
 ```kotlin
@@ -502,7 +503,7 @@ The only difference that `of` overloads are allowed to have is "number" of param
 Which means that types of the parameters must be the same, and all type parameters with their bounds must be the same.
 
 **Restriction 6.**
-All `of` overloads must have zero extension/context parameters/receivers.
+All `of` overloads must have no extension/context parameters/receivers.
 
 We forbid them to keep mental model simpler and since we didn't find major use cases.
 Since all those "implicit receivers" affect availability of the `of` function, it'd complicate `outerCall` overload resolution, if we allowed "implicit receivers".
@@ -540,7 +541,7 @@ class List<T> {
 ```
 
 **Permission 4.**
-Java static `of` member is perceived as `operator fun of` if it satisfies the above restrictions.
+Java static `of` members are perceived as `operator fun of` if they satisfy the above restrictions.
 
 ### Theoretical possibility to support List vs. Set overloads in the future
 
