@@ -165,6 +165,20 @@ It's proposed to use square brackets because the syntax is already used in Kotli
 because it's the syntax a lot of programmers are already familiar with coming from other programming languages,
 and because it honors mathematical notation for matrices.
 
+```kotlin
+class MyCustomList<T> {
+    companion object { fun <T> of(vararg elements: T): MyCustomList<T> = TODO() }
+}
+
+fun main() {
+    val list: MyCustomList<Int> = [1, 2] // is equivalent to:
+    val list: MyCustomList<Int> = MyCustomList.of(1, 2)
+
+    val list1 = [1, 2] // is equivalent to:
+    val list1 = List.of(1, 2)
+}
+```
+
 **Informal definition.**
 Internally, Kotlin has a notion of *expected type*.
 Expressions have some type, which we call "the actual type" or just "the type".
