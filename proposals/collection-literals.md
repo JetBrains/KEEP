@@ -19,7 +19,6 @@ In simpliest form, if users want to create a collection, instead of writing `val
   - [Overload resolution and type inference](#overload-resolution-and-type-inference)
   - [Operator function `of` restrictions](#operator-function-of-restrictions)
   - [Operator function `of` allowances](#operator-function-of-allowances)
-- [What happens if user forgets operator keyword](#what-happens-if-user-forgets-operator-keyword)
 - [Similarities with `@OverloadResolutionByLambdaReturnType`](#similarities-with-overloadresolutionbylambdareturntype)
 - [Feature interaction with `@OverloadResolutionByLambdaReturnType`](#feature-interaction-with-overloadresolutionbylambdareturntype)
 - ["Contains" use case](#contains-use-case)
