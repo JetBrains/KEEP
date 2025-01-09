@@ -18,7 +18,7 @@ In simpliest form, if users want to create a collection, instead of writing `val
 - [Overload resolution motivation](#overload-resolution-motivation)
   - [Overload resolution and type inference](#overload-resolution-and-type-inference)
   - [Operator function `of` restrictions](#operator-function-of-restrictions)
-  - [Operator function `of` permissions](#operator-function-of-permissions)
+  - [Operator function `of` allowances](#operator-function-of-allowances)
   - [Theoretical possibility to support List vs Set overloads in the future](#theoretical-possibility-to-support-list-vs-set-overloads-in-the-future)
 - [What happens if user forgets operator keyword](#what-happens-if-user-forgets-operator-keyword)
 - [Similarities with `@OverloadResolutionByLambdaReturnType`](#similarities-with-overloadresolutionbylambdareturntype)
@@ -508,11 +508,11 @@ All `of` overloads must have no extension/context parameters/receivers.
 We forbid them to keep mental model simpler and since we didn't find major use cases.
 Since all those "implicit receivers" affect availability of the `of` function, it'd complicate `outerCall` overload resolution, if we allowed "implicit receivers".
 
-### Operator function `of` permissions
+### Operator function `of` allowances
 
-We would like to explicitly note the following permissions.
+We would like to explicitly note the following allowances.
 
-**Permission 1.**
+**Allowance 1.**
 It's allowed to have reified generics and mark the operator as `inline`.
 
 Use case:
@@ -524,11 +524,11 @@ class IntArray {
 }
 ```
 
-**Permission 2.**
+**Allowance 2.**
 The operator is allowed to be `suspend`, or `tailrec`.
 Because all other operators are allowed being such as well, and we don't see reasons to restrict `operator fun of`.
 
-**Permission 3.**
+**Allowance 3.**
 It's allowed to have overloads that differ in number of arguments:
 ```kotlin
 class List<T> {
@@ -540,7 +540,7 @@ class List<T> {
 }
 ```
 
-**Permission 4.**
+**Allowance 4.**
 Java static `of` members are perceived as `operator fun of` if they satisfy the above restrictions.
 
 ### Theoretical possibility to support List vs. Set overloads in the future
