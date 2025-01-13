@@ -5,7 +5,6 @@
 * **Contributors**: Alejandro Serrano Mena, Marat Akhin, Nikita Bobko, Pavel Kunyavskiy
 * **Status**: Experimental in Kotlin 2.2
 * **Discussion**: [link to discussion thread or issue]
-* **Prototype**: [link to prototype or implementation, if any]
 
 ## Synopsis
 
@@ -13,12 +12,12 @@ Allow to use `_` (one underscore) as a local variable name to explicitly express
 
 ```kotlin
 fun writeTo(file: File): Boolean {
-    val result = runCatching { file.writeText("OK") }
+    val result = runCatching { file.writeText("Hello World!") }
     return result.isSuccess
 }
 
 fun foo(file: File) {
-    val _ = writeTo(file)
+    val _ = writeTo(file) // We are not interested whether write operation is successfull
 }
 ```
 
@@ -26,18 +25,20 @@ Underscore can be used only in *local variable declaration*: `val _ = ...` and c
 
 ## Motivation
 
-> ChatGPT slop
-1. Readiness for unused return value checker
+1. Explicit expression of intent
 
-The use of underscores for local variables provides readiness for unused return value checkers by explicitly marking values that are not intended to be used. This helps static analyzers identify intentional discards and avoid false positives, enabling developers to focus on genuinely problematic cases.
+When reading and reviewing code you are not very familiar with, it may be hard to say whether unused function return value is an intention or a subtle bug.
+Explicit syntax for this would help quickly differentiate between the two.
 
-2. Better readability
+2. Readiness for unused return value checker
 
-Underscores improve the readability of code by clearly indicating that certain variables are irrelevant or disposable in a given context. This practice makes the intent of the code more obvious to readers and ensures that the focus remains on the meaningful portions of the logic.
+In the scope of [TODO: INSERT URVC KEEP LINK], a smart checker for unused return values will be added to Kotlin compiler.
+This syntax will make its adoption much easier, since there would be no need to `@Suppress` checker output in case value has to be explicitly ignored.
 
+3. Uniformity in existing Kotlin features
 
-In Kotlin, if you need to ignore or discard a function's return value intentionally, it’s important to clearly indicate this in your code for better readability and maintainability. Using an underscore `_` as a placeholder variable signals that the return value is not needed. This practice avoids potential confusion and makes your intention explicit to others reviewing the code, ensuring they understand you’re not accidentally ignoring something important. Explicitly discarding return values contributes to safer code and aligns with Kotlin's principle of making intent clear and reducing ambiguity.
-
+Kotlin already supports underscores for unused things in a number of places — see [References and further extensions](#references-and-further-extensions) section of this document.
+Adding underscore as a name for unused local variables is a logical expansion of this trend.
 
 ## Proposed syntax
 
@@ -75,13 +76,14 @@ Using `_ = ...` syntax may create impression that `_` is some existing global va
 
 ## References and further extensions
 
-With this proposal, Kotlin would support:
+Kotlin already supports underscores in several different positions:
 
 * Underscore for unused lambda/anonymous function parameters ([KEEP](underscore-for-unused-parameters.md), [link](https://kotlinlang.org/docs/lambdas.html#underscore-for-unused-variables)).
 * Underscore for unused components in positional-based destructuring ([link](https://kotlinlang.org/docs/destructuring-declarations.html)).
 * Underscore for unused type arguments ([link](https://kotlinlang.org/docs/generics.html#underscore-operator-for-type-arguments))
 * Underscore for unused exception instances ([link](https://youtrack.jetbrains.com/issue/KT-31567))
-* Underscore for unused local variables (this proposal)
+
+With this proposal, we would also support underscores for unused local variables.
 
 Besides this list, one of the most requested places for underscore support is an unused function parameter:
 
